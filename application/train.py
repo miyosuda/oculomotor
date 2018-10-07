@@ -66,7 +66,8 @@ def train(content, step_size, logger):
 
     # If your training code is written inside BG module, please add model load code here like.
     #
-    #   bg.load_model("model.pkl")
+    pfc.load_model('data/pfc_task_detection.pth')
+    #bg.load_model('data/bg_rl.pth')
     #
     # When runnning with Docker, directory under 'oculomotor/' is volume shared
     # with the host, so you can load/save the model data at anywhere under 'oculomotor/' dir.
@@ -104,7 +105,7 @@ def train(content, step_size, logger):
             # Plase add model save code as you like.
             #
             # if i % 10 == 0:
-            #     bg.save_model("model.pkl")
+            #bg.save_model('data/bg_rl.pth')
             
     print("training finished")
     logger.close()

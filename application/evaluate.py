@@ -245,7 +245,8 @@ def evaluate(logger, log_path):
         cb=cb
     )
 
-    #bg.load_model("model.pkl")
+    pfc.load_model('data/pfc_task_detection.pth')
+    #bg.load_model('data/bg_rl.pth')
 
     total_reward = 0
 

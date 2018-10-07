@@ -30,12 +30,17 @@ class TestRetina(unittest.TestCase):
         if not os.path.exists(self.get_file_path("test_results")):
             os.mkdir(self.get_file_path("test_results"))
         
-        blur_rates = self.retina.blur_rates
+        width = 128
+        blur_rates, inv_blur_rates = self.retina._create_rate_datas(width, sigma=0.32, clipping_gain=1.2, gain=1.0)
+        gray_rates, inv_gray_rates = self.retina._create_rate_datas(width, sigma=0.32, clipping_gain=1.2, gain=1.0)
+        inv_gray_rates += 0.2
+        inv_gray_rates = np.clip(inv_gray_rates, 0.0, 1.0)
+        gray_rates = 1.0 - inv_gray_rates
+
         blur_rates = (blur_rates * 255.0).astype(np.uint8)
         blur_rates = np.reshape(blur_rates, [128,128])
         self.save_image(blur_rates, "test_results/retina_blur_mix_rates.png")
 
-        gray_rates = self.retina.gray_rates
         gray_rates = (gray_rates * 255.0).astype(np.uint8)
         gray_rates = np.reshape(gray_rates, [128,128])
         self.save_image(gray_rates, "test_results/retina_gray_mix_rates.png")

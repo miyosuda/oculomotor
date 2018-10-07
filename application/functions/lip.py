@@ -1,11 +1,12 @@
+
+import math
 import cv2
 import numpy as np
 
 import brica
+from .utils import load_template, save_image
 
-
-GAUSSIAN_KERNEL_SIZE = (5,5)
-
+BALL_MAP_MASK_WINDOW = 10 # TODO
 
 class OpticalFlow(object):
     def __init__(self):
@@ -52,11 +53,10 @@ class OpticalFlow(object):
         self.last_gray_image = gray_image
         return self.flow
 
-
 class LIP(object):
     """ Retina module.
 
-    This LIP module calculates saliency map and optical flow from retina image.
+    This LIP module calculates optical flow from retina image.
     """
     
     def __init__(self):
@@ -64,87 +64,70 @@ class LIP(object):
 
         self.optical_flow = OpticalFlow()
 
-        self.last_saliency_map = None
+        self.large_e_template = load_template('data/general_e0.png', (17, 17), [0, 0, 0]) # black # TODO: size
+        #save_image(self.large_e_template, 'large_e.png')
+        self.small_e_template = load_template('data/general_e0.png', (9, 9), [0, 0, 0]) # black # TODO: size
+        #save_image(self.small_e_template, 'small_e.png')
+        self.magenta_t_template = load_template('data/general_t0.png', (9, 9), [191, 0, 255]) # [191, 0, 255] == magenta # TODO: size
+        #save_image(self.magenta_t_template, 'magenta_t.png')
+        self.green_ball_template = load_template('data/general_round0.png', (9, 9), [0, 199, 0]) # [0, 199, 0] == green # TODO: size
+        #save_image(self.green_ball_template, 'green_ball.png')
+        self.blue_ball_template = load_template('data/general_round0.png', (9, 9), [199, 0, 0]) # [199, 0, 0] == blue # TODO: size
+        #save_image(self.blue_ball_template, 'blue_ball.png')
+        self.black_ball_template = load_template('data/general_round0.png', (9, 9), [0, 0, 0]) # [0, 0, 0] == black # TODO: size
+        #save_image(self.black_ball_template, 'black_ball.png')
+
         self.last_optical_flow = None
+        self.last_large_e_match_map = None
+        self.last_small_e_match_map = None
+        self.last_green_ball_match_map = None
+        self.last_blue_ball_match_map = None
+        self.last_black_ball_match_map = None
 
     def __call__(self, inputs):
         if 'from_retina' not in inputs:
             raise Exception('LIP did not recieve from Retina')
 
         retina_image = inputs['from_retina'] # (128, 128, 3)
-        saliency_map = self._get_saliency_map(retina_image) # (128, 128)
 
-        use_saliency_flow = False
+        large_e_match_map = self._get_match_map(retina_image, self.large_e_template, 0.95, 0.99) # (128, 128) # TODO: adjust threshold and max_value
+        small_e_match_map = self._get_match_map(retina_image, self.small_e_template, 0.7, 1.0) # (128, 128) # TODO: adjust threshold and max_value
+        magenta_t_match_map = self._get_match_map(retina_image, self.magenta_t_template, 0.9, 1.0) # (128, 128) # TODO: adjust threshold and max_value
+        green_ball_match_map = self._get_match_map(retina_image, self.green_ball_template, 0.85, 1.0) # (128, 128) # TODO: adjust threshold and max_value
+        blue_ball_match_map = self._get_match_map(self.mask_center(retina_image), self.blue_ball_template, 0.85, 1.0) # (128, 128) # TODO: adjust threshold and max_value
+        black_ball_match_map = self._get_match_map(self.mask_center(retina_image), self.black_ball_template, 0.85, 1.0) # (128, 128) # TODO: adjust threshold and max_value
 
-        if not use_saliency_flow:
-            # Calculate optical flow with retina image
-            optical_flow = self.optical_flow.process(retina_image,
-                                                     is_saliency_map=False)
-        else:
-            # Calculate optical flow with saliency map
-            optical_flow = self.optical_flow.process(saliency_map,
-                                                     is_saliency_map=True)
-        
-        # Store saliency map for debug visualizer
-        self.last_saliency_map = saliency_map
-        
+        # Calculate optical flow with retina image
+        optical_flow = self.optical_flow.process(retina_image, is_saliency_map=False)
+
+        # Store maps for debug visualizer
         self.last_optical_flow = optical_flow
+        self.last_large_e_match_map = large_e_match_map
+        self.last_small_e_match_map = small_e_match_map
+        self.last_green_ball_match_map = green_ball_match_map
+        self.last_blue_ball_match_map = blue_ball_match_map
+        self.last_black_ball_match_map = black_ball_match_map
         
-        return dict(to_fef=(saliency_map, optical_flow))
+        return dict(to_fef=(optical_flow, large_e_match_map, small_e_match_map, magenta_t_match_map, green_ball_match_map, blue_ball_match_map, black_ball_match_map))
 
-    def _get_saliency_magnitude(self, image):
-        # Calculate FFT
-        dft = cv2.dft(image.astype(np.float32), flags=cv2.DFT_COMPLEX_OUTPUT)
-        magnitude, angle = cv2.cartToPolar(dft[:, :, 0], dft[:, :, 1])
+    def _get_match_map(self, image, template, threshold, max_value): # TODO
+        match = cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
+        # https://docs.opencv.org/2.4/modules/imgproc/doc/object_detection.html?highlight=matchtemplate#matchtemplate
+        # if input is (W, H) and template is (w, h), output is (W-w+1, H-h+1)
+        # so it needs to pad to adjust input image shape.
+        # (W, H) - (W-w+1, H-h+1) = (w-1, h-1) = (pad_x, pad_y)
+        pad_x = image.shape[0] - match.shape[0]
+        pad_y = image.shape[1] - match.shape[1]
+        match_map = np.pad(match, [(pad_x // 2, pad_x - pad_x // 2), (pad_y // 2, pad_y - pad_y // 2)], 'constant')
+        match_map[match_map < threshold] = 0.0
+        match_map[match_map >= threshold] = max_value
+        return match_map
 
-        log_magnitude = np.log10(magnitude.clip(min=1e-10))
-
-        # Apply box filter
-        log_magnitude_filtered = cv2.blur(log_magnitude, ksize=(3, 3))
-
-        # Calculate residual
-        magnitude_residual = np.exp(log_magnitude - log_magnitude_filtered)
-
-        # Apply residual magnitude back to frequency domain
-        dft[:, :, 0], dft[:, :, 1] = cv2.polarToCart(magnitude_residual, angle)
-    
-        # Calculate Inverse FFT
-        image_processed = cv2.idft(dft)
-        magnitude, _ = cv2.cartToPolar(image_processed[:, :, 0],
-                                       image_processed[:, :, 1])
-        return magnitude
-
-    def _get_saliency_map(self, image):
-        resize_shape = (64, 64) # (h,w)
-
-        # Size argument of resize() is (w,h) while image shape is (h,w,c)
-        image_resized = cv2.resize(image, resize_shape[1::-1])
-        # (64,64,3)
-
-        saliency = np.zeros_like(image_resized, dtype=np.float32)
-        # (64,64,3)
-    
-        channel_size = image_resized.shape[2]
-    
-        for ch in range(channel_size):
-            ch_image = image_resized[:, :, ch]
-            saliency[:, :, ch] = self._get_saliency_magnitude(ch_image)
-
-        # Calclate max over channels
-        saliency = np.max(saliency, axis=2)
-        # (64,64)
-
-        saliency = cv2.GaussianBlur(saliency, GAUSSIAN_KERNEL_SIZE, sigmaX=8, sigmaY=0)
-
-        SALIENCY_ENHANCE_COEFF = 2.0 # Strong saliency contrst
-        #SALIENCY_ENHANCE_COEFF = 0.5 # Low saliency contrast, but sensible for weak saliency
-
-        # Emphasize saliency
-        saliency = (saliency ** SALIENCY_ENHANCE_COEFF)
-
-        # Normalize to 0.0~1.0
-        saliency = saliency / np.max(saliency)
-    
-        # Resize to original size
-        saliency = cv2.resize(saliency, image.shape[1::-1])
-        return saliency
+    def mask_center(self, image):
+        h, w = image.shape[:2]
+        win = BALL_MAP_MASK_WINDOW
+        mask = np.zeros_like(image)
+        x = w // 2
+        y = h // 2
+        mask[y-win:y+win,  x-win:x+win] = [1.0, 1.0, 1.0]
+        return mask * image

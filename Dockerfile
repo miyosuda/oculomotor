@@ -20,6 +20,9 @@ COPY requirements.txt /tmp
 RUN pip install --upgrade pip setuptools && \
     pip --no-cache-dir install -r /tmp/requirements.txt
 
+# COPY oculoenv /tmp/oculoenv
+# RUN pip install --upgrade -e /tmp/oculoenv
+
 ENV CONTAINER_APP /opt/oculomotor
 WORKDIR ${CONTAINER_APP}
 

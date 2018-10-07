@@ -1,6 +1,10 @@
 import numpy as np
 import brica
 
+ACTION_EPS = 1e-8
+
+ACTION_AMP_RATE = 1.5
+ACTION_CUTOFF = 0.0
 
 class SC(object):
     """ 
@@ -56,5 +60,16 @@ class SC(object):
             action = [sum_ex / count, sum_ey / count]
         else:
             action = [0.0, 0.0]
-        
-        return np.array(action, dtype=np.float32)
+
+        action = np.array(action, dtype=np.float32)
+
+        action = ACTION_AMP_RATE * action
+        if np.linalg.norm(action) < ACTION_CUTOFF: # for rapid convergence
+            action *= 0.0 # action = np.array([0.0, 0.0])
+        action = np.clip(action, -1.0, 1.0)
+
+        # sc_action must be None to enable cb's action. see agent/__init__.py
+        if (np.abs(action) < ACTION_EPS).all():
+            action = None
+
+        return action

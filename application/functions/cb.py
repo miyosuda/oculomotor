@@ -1,6 +1,9 @@
 import brica
 import numpy as np
 
+ACTION_AMP_RATE = 4.0
+ACTION_CUTOFF = 0.1
+
 class CB(object):
     """ Cerebellum module.
     
@@ -13,9 +16,13 @@ class CB(object):
         if 'from_fef' not in inputs:
             raise Exception('CB did not recieve from FEF')
 
-        #fef_data = inputs['from_fef']
+        fef_data = inputs['from_fef']
         
-        action = np.array([0, 0], dtype=np.float32)
+        action = ACTION_AMP_RATE * fef_data # fef data is too small
+        if np.linalg.norm(action) < ACTION_CUTOFF: # for rapid convergence
+            action *= 0.0 # action = np.array([0.0, 0.0])
 
         # Action values should be within range [-1.0~1.0]
+        action = np.clip(action, -1.0, 1.0)
+
         return dict(to_environment=action)
