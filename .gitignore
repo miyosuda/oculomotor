@@ -104,3 +104,6 @@ venv.bak/
 
 # log dir
 log
+
+# for data collect script
+base_data
