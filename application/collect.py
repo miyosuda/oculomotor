@@ -15,6 +15,7 @@ from oculoenv import Environment
 from oculoenv import PointToTargetContent, ChangeDetectionContent, OddOneOutContent, VisualSearchContent, \
     MultipleObjectTrackingContent, RandomDotMotionDiscriminationContent
 from logger import Logger
+from gen_dataset import generate
 
 
 
@@ -164,11 +165,9 @@ def main():
                         + " 6: Random Dot Motion Descrimination",
                         type=int,
                         default=1)
-    # Ideal dataset version
-    #parser.add_argument("--step_size", help="Training step size", type=int, default=20*10000+1)
     
     # Small dataset version
-    parser.add_argument("--step_size", help="Training step size", type=int, default=20*5000+1)
+    parser.add_argument("--step_size", help="Training step size", type=int, default=20*10000+1)
     
     args = parser.parse_args()
     
@@ -180,7 +179,12 @@ def main():
     
     print("start collecting content: {} step_size={}".format(content_type, step_size))
 
+    # Collect original images
     collect(content, step_size)
+
+    # generate dataset
+    generate("base_data", step_size-1)
+    
 
 
 if __name__ == '__main__':

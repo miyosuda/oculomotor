@@ -107,3 +107,4 @@ log
 
 # for data collect script
 base_data
+oculomotor.npz
