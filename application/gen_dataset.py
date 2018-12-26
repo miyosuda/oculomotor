@@ -135,7 +135,7 @@ def generate_opt_flow(base_data_dir, frame_size):
         opt_flow = opt_flow_manager.process(image)
         # (48, 48, 2)
         if opt_flow is not None:
-            opt_flow = cv2.resize(opt_flow, (target_opt_flow_width,target_opt_flow_width))
+            opt_flow = cv2.resize(opt_flow, (target_opt_flow_width, target_opt_flow_width))
             # (16, 16, 2)
         dat_opt_flow[i] = opt_flow
         
@@ -146,7 +146,8 @@ def generate_opt_flow(base_data_dir, frame_size):
     dat_opt_flow[0] = dat_opt_flow[1]
 
     # (100000, 16, 16, 2) float32
-    dat_opt_flow = dat_opt_flow.reshape((-1, seq_length, opt_flow_width, opt_flow_width, 2))
+    dat_opt_flow = dat_opt_flow.reshape((-1, seq_length,
+                                         target_opt_flow_width, target_opt_flow_width, 2))
     # (5000, 20, 16, 16, 2) float32
     
     # .npzを省いたパス
