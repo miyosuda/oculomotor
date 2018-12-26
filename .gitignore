@@ -108,3 +108,4 @@ log
 # for data collect script
 base_data
 oculomotor.npz
+oculomotor_opt_flow.npz

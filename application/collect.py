@@ -8,6 +8,7 @@ import cv2
 import os
 import time
 import numpy as np
+from distutils.util import strtobool
 
 from agent import Agent
 from functions import BG, FEF, LIP, PFC, Retina, SC, VC, HP, CB
@@ -15,7 +16,7 @@ from oculoenv import Environment
 from oculoenv import PointToTargetContent, ChangeDetectionContent, OddOneOutContent, VisualSearchContent, \
     MultipleObjectTrackingContent, RandomDotMotionDiscriminationContent
 from logger import Logger
-from gen_dataset import generate
+from gen_dataset import generate, generate_opt_flow
 
 
 
@@ -168,6 +169,7 @@ def main():
     
     # Small dataset version
     parser.add_argument("--step_size", help="Training step size", type=int, default=20*10000+1)
+    parser.add_argument("--opt_flow_only", type=strtobool, default="false")
     
     args = parser.parse_args()
     
@@ -179,12 +181,18 @@ def main():
     
     print("start collecting content: {} step_size={}".format(content_type, step_size))
 
-    # Collect original images
-    collect(content, step_size)
+    if args.opt_flow_only:
+        # Generate optical flow dataset only
+        generate_opt_flow("base_data", step_size-1)
+    else:
+        # Collect original images
+        collect(content, step_size)
 
-    # generate dataset
-    generate("base_data", step_size-1)
-    
+        # Generate dataset
+        generate("base_data", step_size-1)
+
+        # Generate optical flow
+        generate_opt_flow("base_data", step_size-1)
 
 
 if __name__ == '__main__':
