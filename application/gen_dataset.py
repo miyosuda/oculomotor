@@ -113,8 +113,10 @@ def generate_opt_flow(base_data_dir, frame_size):
 
     # 何故か32x32にするとcv2が落ちてしまう.
     opt_flow_width = 48
+    target_opt_flow_width = 16
 
-    dat_opt_flow = np.empty((frame_size, opt_flow_width, opt_flow_width, 2), np.float32)
+    dat_opt_flow = np.empty((frame_size, target_opt_flow_width, target_opt_flow_width, 2),
+                            np.float32)
 
     opt_flow_manager = OpticalFlowManager(opt_flow_width, opt_flow_width)
 
@@ -129,8 +131,13 @@ def generate_opt_flow(base_data_dir, frame_size):
         # (128)
         image = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
         image = cv2.resize(image, (opt_flow_width,opt_flow_width))
-        # (32, 32) uint8
-        dat_opt_flow[i] = opt_flow_manager.process(image)
+        # (48, 48) uint8
+        opt_flow = opt_flow_manager.process(image)
+        # (48, 48, 2)
+        if opt_flow is not None:
+            opt_flow = cv2.resize(opt_flow, (target_opt_flow_width,target_opt_flow_width))
+            # (16, 16, 2)
+        dat_opt_flow[i] = opt_flow
         
         if i % 100 == 0:
             print("processes:{}".format(i))
@@ -138,10 +145,10 @@ def generate_opt_flow(base_data_dir, frame_size):
     # 1枚目が空なので2枚目と同じものにしておく
     dat_opt_flow[0] = dat_opt_flow[1]
 
-    # (100000, 32, 32, 2) float32
+    # (100000, 16, 16, 2) float32
     dat_opt_flow = dat_opt_flow.reshape((-1, seq_length, opt_flow_width, opt_flow_width, 2))
-    # (5000, 20, 32, 32, 2) float32
-        
+    # (5000, 20, 16, 16, 2) float32
+    
     # .npzを省いたパス
     file_path = os.path.join(".", file_name)
 
